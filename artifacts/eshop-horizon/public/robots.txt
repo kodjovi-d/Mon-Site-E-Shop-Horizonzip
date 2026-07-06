@@ -1,0 +1,9 @@
+# robots.txt - E-Shop Horizon
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://eshop-horizon.netlify.app/.netlify/functions/sitemap
+
+# Disallow admin
+Disallow: /admin/
