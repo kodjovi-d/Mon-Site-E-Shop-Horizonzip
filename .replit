@@ -1,26 +1,56 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-20"]
+[nix]
+channel = "stable-25_05"
 
-[deployment]
-router = "application"
-deploymentTarget = "autoscale"
+[agent]
+expertMode = true
 
-[deployment.postBuild]
-args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[[ports]]
+localPort = 5001
+externalPort = 3002
+
+[[ports]]
+localPort = 5002
+externalPort = 3003
+
+[[ports]]
+localPort = 5173
+externalPort = 5173
+
+[[ports]]
+localPort = 5174
+externalPort = 3000
+exposeLocalhost = true
+
+[[ports]]
+localPort = 5175
+externalPort = 3001
+exposeLocalhost = true
 
 [workflows]
 runButton = "Project"
 
-[agent]
-stack = "PNPM_WORKSPACE"
-expertMode = true
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
 
-[postMerge]
-path = "scripts/post-merge.sh"
-timeoutMs = 20000
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
 
-[userenv]
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
 
-[userenv.shared]
-VITE_SUPABASE_URL = "https://xjexxpcmryfataqzkkhh.supabase.co"
-VITE_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhqZXh4cGNtcnlmYXRhcXpra2hoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2Nzg0NTQsImV4cCI6MjA5ODI1NDQ1NH0.sEctvUHzOlnpTinDNNjg2KQe12EumP2vLHXCzMSDX08"
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
