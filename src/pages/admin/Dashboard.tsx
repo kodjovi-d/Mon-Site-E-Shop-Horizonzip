@@ -197,25 +197,6 @@ export default function AdminDashboard() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 hidden">
-                {[
-                  { label: 'Commandes', value: stats.totalOrders, icon: ShoppingBag, color: 'text-cta-green', bg: 'bg-cta-green/10' },
-                  { label: 'Revenus', value: formatPrice(stats.totalRevenue), icon: DollarSign, color: 'text-soft-gold', bg: 'bg-soft-gold/10' },
-                  { label: 'En cours', value: stats.pendingOrders, icon: TrendingUp, color: 'text-blue-600', bg: 'bg-blue-100' },
-                  { label: 'Produits', value: stats.totalProducts, icon: Package, color: 'text-sage', bg: 'bg-sage/10' },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-white rounded-xl border border-warm-beige p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                        <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                      </div>
-                    </div>
-                    <p className="text-2xl font-bold text-anthracite">{stat.value}</p>
-                    <p className="text-sm text-gray-500">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-
               <div className="bg-white rounded-xl border border-warm-beige overflow-hidden">
                 <div className="p-6 border-b border-warm-beige flex items-center justify-between">
                   <div className="flex items-center gap-2">

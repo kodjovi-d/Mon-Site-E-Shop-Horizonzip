@@ -5,12 +5,12 @@ import type { Handler, HandlerEvent, HandlerContext } from '@netlify/functions'
 // Récupère le numéro de suivi CJ et met à jour Supabase
 // ============================================
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || ''
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 const cjApiKey = process.env.CJ_DROPSHIPPING_API_KEY || ''
-const cjApiUrl = process.env.VITE_CJ_DROPSHIPPING_API_URL || 'https://openapi.cjdropshipping.com'
+const cjApiUrl = process.env.CJ_DROPSHIPPING_API_URL || 'https://openapi.cjdropshipping.com'
 const resendApiKey = process.env.RESEND_API_KEY || ''
-const resendFromEmail = process.env.VITE_RESEND_FROM_EMAIL || 'eshophorizon6@gmail.com'
+const resendFromEmail = process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',

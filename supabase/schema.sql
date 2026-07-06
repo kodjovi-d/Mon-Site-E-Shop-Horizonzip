@@ -22,6 +22,7 @@ CREATE TABLE products (
   slug TEXT UNIQUE NOT NULL,
   description TEXT,
   short_description TEXT,
+  sku TEXT DEFAULT '',
   price DECIMAL(10,2) NOT NULL CHECK (price >= 0),
   compare_price DECIMAL(10,2) CHECK (compare_price >= 0),
   stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
@@ -30,12 +31,17 @@ CREATE TABLE products (
   images TEXT[] DEFAULT '{}',
   main_image TEXT,
   weight DECIMAL(8,2) DEFAULT 0,
+  weight_unit TEXT DEFAULT 'kg',
   dimensions JSONB DEFAULT '{"length":0,"width":0,"height":0}',
   cj_product_id TEXT,
   cj_variant_id TEXT,
+  cj_stock_status TEXT DEFAULT 'unknown' CHECK (cj_stock_status IN ('unknown','empty','low','medium','high')),
+  cj_stock_checked_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT true,
+  is_featured BOOLEAN DEFAULT false,
+  badge TEXT,
   seo_title TEXT,
   seo_description TEXT,
-  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -45,6 +51,7 @@ CREATE TABLE products (
 -- ============================================
 CREATE TABLE orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_number TEXT,
   status TEXT NOT NULL DEFAULT 'pending' 
     CHECK (status IN ('pending', 'paid', 'preparation', 'shipped', 'delivered', 'cancelled', 'payment_failed', 'refunded')),
   payment_status TEXT NOT NULL DEFAULT 'pending'
@@ -53,6 +60,7 @@ CREATE TABLE orders (
   payment_reference TEXT,
   geniuspay_transaction_id TEXT,
   geniuspay_checkout_url TEXT,
+  idempotency_key TEXT UNIQUE,
   customer_email TEXT NOT NULL,
   customer_name TEXT,
   customer_phone TEXT,
@@ -78,6 +86,7 @@ CREATE TABLE order_items (
   order_id UUID REFERENCES orders(id) ON DELETE CASCADE NOT NULL,
   product_id UUID REFERENCES products(id),
   product_name TEXT NOT NULL,
+  sku TEXT DEFAULT '',
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   unit_price DECIMAL(10,2) NOT NULL,
   total_price DECIMAL(10,2) NOT NULL,

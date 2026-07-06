@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Helmet } from 'react-helmet-async'
-import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, X, Save, Loader as Loader2, ImagePlus, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Search, ToggleLeft, ToggleRight, X, Save, Loader as Loader2, ImagePlus, Star, RefreshCw } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { formatPrice } from '../../lib/utils'
 
@@ -28,10 +28,21 @@ interface Product {
   badge: string | null
   weight: number | null
   weight_unit: string
+  cj_product_id: string | null
+  cj_stock_status: string | null
+  cj_stock_checked_at: string | null
   created_at: string
 }
 
-type FormData = Omit<Product, 'id' | 'created_at' | 'slug'>
+const CJ_STOCK_LABELS: Record<string, { label: string; color: string }> = {
+  empty:   { label: '🔴 Rupture',     color: 'bg-red-100 text-red-700 border-red-200' },
+  low:     { label: '🟡 Faible',      color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
+  medium:  { label: '🟢 Disponible',  color: 'bg-green-100 text-green-700 border-green-200' },
+  high:    { label: '🟢 Élevé',       color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+  unknown: { label: '⚪ Inconnu',      color: 'bg-gray-100 text-gray-500 border-gray-200' },
+}
+
+type FormData = Omit<Product, 'id' | 'created_at' | 'slug' | 'cj_product_id' | 'cj_stock_status' | 'cj_stock_checked_at'>
 
 const EMPTY_FORM: FormData = {
   name: '',
@@ -72,16 +83,68 @@ export default function AdminProducts() {
   const [error, setError] = useState('')
   const [imageUploading, setImageUploading] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [stockChecking, setStockChecking] = useState<string | null>(null)
+  const [checkingAll, setCheckingAll] = useState(false)
 
   const fetchProducts = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('products')
-      .select('id,name,slug,description,short_description,price,compare_price,stock,sku,main_image,images,category_id,is_active,is_featured,badge,weight,weight_unit,created_at')
+      .select('id,name,slug,description,short_description,price,compare_price,stock,sku,main_image,images,category_id,is_active,is_featured,badge,weight,weight_unit,cj_product_id,cj_stock_status,cj_stock_checked_at,created_at')
       .order('created_at', { ascending: false })
     if (data) setProducts(data as Product[])
     setLoading(false)
   }, [])
+
+  const checkCJStock = async (product: Product) => {
+    if (!product.cj_product_id) return
+    setStockChecking(product.id)
+    try {
+      const res = await fetch('/.netlify/functions/cj-stock-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Secret': import.meta.env.VITE_ADMIN_SECRET || '',
+        },
+        body: JSON.stringify({ productId: product.id }),
+      })
+      const data = await res.json() as { status?: string; quantity?: number }
+      setProducts(prev => prev.map(p =>
+        p.id === product.id
+          ? { ...p, cj_stock_status: data.status || 'unknown', cj_stock_checked_at: new Date().toISOString() }
+          : p
+      ))
+    } catch {
+      // silently fail
+    } finally {
+      setStockChecking(null)
+    }
+  }
+
+  const checkAllCJStock = async () => {
+    setCheckingAll(true)
+    try {
+      const res = await fetch('/.netlify/functions/cj-stock-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Secret': import.meta.env.VITE_ADMIN_SECRET || '',
+        },
+        body: JSON.stringify({ checkAll: true }),
+      })
+      const data = await res.json() as { results?: Array<{ productId: string; status: string }> }
+      if (data.results) {
+        setProducts(prev => prev.map(p => {
+          const result = data.results!.find(r => r.productId === p.id)
+          return result ? { ...p, cj_stock_status: result.status, cj_stock_checked_at: new Date().toISOString() } : p
+        }))
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setCheckingAll(false)
+    }
+  }
 
   useEffect(() => {
     fetchProducts()
@@ -223,13 +286,24 @@ export default function AdminProducts() {
             <h1 className="font-display text-3xl font-bold text-anthracite">Produits</h1>
             <p className="text-gray-500 mt-1">{products.length} produit{products.length !== 1 ? 's' : ''}</p>
           </div>
-          <button
-            onClick={openCreate}
-            className="inline-flex items-center gap-2 bg-[#3D6B3D] text-white px-5 py-2.5 rounded-xl font-medium hover:bg-[#2D5016] transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Nouveau produit
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={checkAllCJStock}
+              disabled={checkingAll}
+              title="Vérifier stock CJ pour tous les produits"
+              className="inline-flex items-center gap-2 bg-white border border-warm-beige text-anthracite px-4 py-2.5 rounded-xl font-medium hover:bg-warm-beige/50 transition-colors disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${checkingAll ? 'animate-spin' : ''}`} />
+              {checkingAll ? 'Vérification...' : 'Stock CJ'}
+            </button>
+            <button
+              onClick={openCreate}
+              className="inline-flex items-center gap-2 bg-[#3D6B3D] text-white px-5 py-2.5 rounded-xl font-medium hover:bg-[#2D5016] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Nouveau produit
+            </button>
+          </div>
         </div>
 
         {/* Search */}
@@ -258,7 +332,8 @@ export default function AdminProducts() {
                     <th className="px-4 py-3 text-left font-semibold text-anthracite">Produit</th>
                     <th className="px-4 py-3 text-left font-semibold text-anthracite hidden md:table-cell">SKU</th>
                     <th className="px-4 py-3 text-right font-semibold text-anthracite">Prix</th>
-                    <th className="px-4 py-3 text-right font-semibold text-anthracite hidden sm:table-cell">Stock</th>
+                    <th className="px-4 py-3 text-right font-semibold text-anthracite hidden sm:table-cell">Stock local</th>
+                    <th className="px-4 py-3 text-center font-semibold text-anthracite hidden xl:table-cell">Stock CJ</th>
                     <th className="px-4 py-3 text-center font-semibold text-anthracite">Actif</th>
                     <th className="px-4 py-3 text-center font-semibold text-anthracite hidden lg:table-cell">Vedette</th>
                     <th className="px-4 py-3 text-center font-semibold text-anthracite">Actions</th>
@@ -304,6 +379,29 @@ export default function AdminProducts() {
                           <span className={`font-medium ${product.stock <= 5 ? 'text-red-500' : 'text-anthracite'}`}>
                             {product.stock}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-center hidden xl:table-cell">
+                          {product.cj_product_id ? (
+                            <div className="flex flex-col items-center gap-1">
+                              {product.cj_stock_status ? (
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${(CJ_STOCK_LABELS[product.cj_stock_status] || CJ_STOCK_LABELS.unknown).color}`}>
+                                  {(CJ_STOCK_LABELS[product.cj_stock_status] || CJ_STOCK_LABELS.unknown).label}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-gray-400">Non vérifié</span>
+                              )}
+                              <button
+                                onClick={() => checkCJStock(product)}
+                                disabled={stockChecking === product.id}
+                                className="text-xs text-blue-500 hover:text-blue-700 flex items-center gap-1 disabled:opacity-40"
+                              >
+                                <RefreshCw className={`h-3 w-3 ${stockChecking === product.id ? 'animate-spin' : ''}`} />
+                                Actualiser
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-300">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <button onClick={() => toggleActive(product)} className="hover:opacity-80 transition-opacity">

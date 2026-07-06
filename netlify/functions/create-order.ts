@@ -89,17 +89,39 @@ function isValidString(str: unknown, maxLength: number = 255): str is string {
   return typeof str === 'string' && str.trim().length > 0 && str.length <= maxLength
 }
 
-// Server-side shipping cost calculation (source of truth)
+// Server-side shipping cost calculation (source of truth — must match frontend Checkout.tsx)
 function computeShipping(country: string, subtotal: number): number {
-  // Free shipping over 80 EUR
-  if (subtotal >= 80) return 0
-  const c = (country || '').toUpperCase()
-  // France
-  if (c === 'FR' || c === 'FRANCE') return 4.90
-  // Europe zone
-  if (['BE', 'LU', 'DE', 'ES', 'IT', 'NL', 'PT', 'AT', 'IE'].includes(c)) return 9.90
-  // Rest of world
-  return 15.90
+  const c = (country || '').toUpperCase().trim()
+  // Per-country rates matching frontend
+  const RATES: Record<string, { cost: number; free: number }> = {
+    FR: { cost: 5.90, free: 49 }, MC: { cost: 5.90, free: 49 },
+    BE: { cost: 6.90, free: 49 }, LU: { cost: 6.90, free: 49 },
+    DE: { cost: 7.90, free: 49 }, IT: { cost: 7.90, free: 49 },
+    ES: { cost: 7.90, free: 49 }, NL: { cost: 7.90, free: 49 },
+    AT: { cost: 7.90, free: 49 }, PT: { cost: 8.90, free: 49 },
+    CH: { cost: 8.90, free: 49 }, DK: { cost: 8.90, free: 49 },
+    IE: { cost: 9.90, free: 49 }, SE: { cost: 9.90, free: 49 },
+    AD: { cost: 9.90, free: 49 }, SM: { cost: 9.90, free: 49 },
+    VA: { cost: 9.90, free: 49 }, NO: { cost: 10.90, free: 49 },
+    FI: { cost: 10.90, free: 49 }, PL: { cost: 9.90, free: 49 },
+    CZ: { cost: 9.90, free: 49 }, SK: { cost: 10.90, free: 49 },
+    HU: { cost: 10.90, free: 49 }, SI: { cost: 10.90, free: 49 },
+    LI: { cost: 10.90, free: 49 }, HR: { cost: 11.90, free: 49 },
+    RO: { cost: 11.90, free: 49 }, EE: { cost: 11.90, free: 49 },
+    LV: { cost: 11.90, free: 49 }, LT: { cost: 11.90, free: 49 },
+    BG: { cost: 12.90, free: 49 }, GR: { cost: 12.90, free: 49 },
+    MT: { cost: 12.90, free: 49 }, GB: { cost: 12.90, free: 49 },
+    IS: { cost: 14.90, free: 49 }, CY: { cost: 13.90, free: 49 },
+    TG: { cost: 15.90, free: 69 }, MA: { cost: 14.90, free: 69 },
+    TN: { cost: 14.90, free: 69 }, DZ: { cost: 15.90, free: 69 },
+    EG: { cost: 16.90, free: 69 }, LY: { cost: 17.90, free: 69 },
+    CI: { cost: 15.90, free: 69 }, SN: { cost: 15.90, free: 69 },
+    GH: { cost: 15.90, free: 69 }, BJ: { cost: 15.90, free: 69 },
+  }
+  const rate = RATES[c]
+  if (rate) return subtotal >= rate.free ? 0 : rate.cost
+  // Default international
+  return subtotal >= 69 ? 0 : 15.90
 }
 
 export const handler: Handler = async (event: HandlerEvent, _context: HandlerContext) => {
@@ -307,6 +329,8 @@ export const handler: Handler = async (event: HandlerEvent, _context: HandlerCon
       },
       success_url: `${siteUrl}/merci?order=${order.id}`,
       error_url: `${siteUrl}/checkout?error=payment_failed`,
+      cancel_url: `${siteUrl}/checkout?error=cancelled&order=${order.id}`,
+      webhook_url: `${siteUrl}/.netlify/functions/geniuspay-webhook`,
       metadata: {
         order_id: order.id,
         customer_email: body.customerEmail,
